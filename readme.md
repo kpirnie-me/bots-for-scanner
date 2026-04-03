@@ -1,6 +1,6 @@
 # Bad Bot Blocker Lists
 
-[![GitHub Issues](https://img.shields.io/github/issues/kpirnie/bots-for-scanner?style=for-the-badge&logo=github&color=006400&logoColor=white&labelColor=000)](https://github.com/kpirnie-me/bots-for-scanner/issues)
+[![GitHub Issues](https://img.shields.io/github/issues/kpirnie-me/bots-for-scanner?style=for-the-badge&logo=github&color=006400&logoColor=white&labelColor=000)](https://github.com/kpirnie-me/bots-for-scanner/issues)
 [![Last Commit](https://img.shields.io/github/last-commit/kpirnie-me/bots-for-scanner?style=for-the-badge&labelColor=000)](https://github.com/kpirnie-me/bots-for-scanner/commits/main)
 [![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg?style=for-the-badge&logo=opensourceinitiative&logoColor=white&labelColor=000)](LICENSE)
 
@@ -28,7 +28,7 @@ A list of known legitimate AI bot and crawler user agents. Rather than blocking 
 
 Includes crawlers from: OpenAI, Anthropic, Google, Microsoft, Perplexity, Apple, Amazon, Meta, ByteDance, DuckDuckGo, Cohere, xAI, Mistral, DeepSeek, Common Crawl, Allen Institute, Diffbot, LinkedIn, You.com, HuggingFace, Groq, Character.AI, Firecrawl, and others.
 
-### `whitelist-ip.list` *(coming soon)*
+### `whitelist-ip.list`
 A list of known legitimate IP ranges for trusted crawlers and services.
 
 ---
