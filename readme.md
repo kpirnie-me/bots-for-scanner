@@ -24,7 +24,7 @@ A list of known bad, malicious, or unwanted user agent strings including scraper
 A list of IP addresses that falsely identify themselves as Googlebot. These are not legitimate Google crawlers and should be blocked.
 
 ### `whitelist-ua.list`
-A list of known legitimate AI bot and crawler user agents. Rather than blocking these outright, this list can be used to explicitly allow them through rules that would otherwise catch them, or to apply separate rate limiting policies.
+A list of known legitimate AI bot and search engine crawler user agents. Rather than blocking these outright, this list can be used to explicitly allow them through rules that would otherwise catch them, or to apply separate rate limiting policies.
 
 Includes crawlers from: OpenAI, Anthropic, Google, Microsoft, Perplexity, Apple, Amazon, Meta, ByteDance, DuckDuckGo, Cohere, xAI, Mistral, DeepSeek, Common Crawl, Allen Institute, Diffbot, LinkedIn, You.com, HuggingFace, Groq, Character.AI, Firecrawl, and others.
 
