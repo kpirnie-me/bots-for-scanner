@@ -80,7 +80,7 @@ param(
     [switch]$RestartIIS,
     [switch]$RestoreOriginal,
     [string]$BackupDir = "C:\iis-config\backups",
-    [ValidateSet("Mode","Nginx")]
+    [ValidateSet("Mode", "Nginx")]
     [string]$WhichLists = "Nginx"
 )
 
@@ -240,17 +240,18 @@ if (-not (Test-Path $originalBackupPath)) {
 # ---------------------------------------------------------------------------
 # Resolve list URLs based on -WhichLists
 # ---------------------------------------------------------------------------
-$wlIpUrl  = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/whitelist-ip.list"
-$wlUaUrl  = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/whitelist-ua.list"
+$wlIpUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/whitelist-ip.list"
+$wlUaUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/whitelist-ua.list"
 
 if ($WhichLists -eq "Mode") {
-    $uaUrl  = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/bad-user-agents.list"
+    $uaUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/bad-user-agents.list"
     $refUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/bad-referrers.list"
-    $fgUrl  = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/fake-googlebots.list"
-} else {
-    $uaUrl  = "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists/bad-user-agents.list"
+    $fgUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/fake-googlebots.list"
+}
+else {
+    $uaUrl = "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists/bad-user-agents.list"
     $refUrl = "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists/bad-referrers.list"
-    $fgUrl  = "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists/fake-googlebots.list"
+    $fgUrl = "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists/fake-googlebots.list"
 }
 
 Write-Host ""
@@ -261,9 +262,9 @@ Write-Host ""
 # ---------------------------------------------------------------------------
 # Fetch all lists
 # ---------------------------------------------------------------------------
-[string[]]$userAgents   = Get-BlockList -Url $uaUrl  -Name "bad-user-agents"
-[string[]]$referrers    = Get-BlockList -Url $refUrl -Name "bad-referrers"
-[string[]]$fakeBots     = Get-BlockList -Url $fgUrl  -Name "fake-googlebots"
+[string[]]$userAgents = Get-BlockList -Url $uaUrl  -Name "bad-user-agents"
+[string[]]$referrers = Get-BlockList -Url $refUrl -Name "bad-referrers"
+[string[]]$fakeBots = Get-BlockList -Url $fgUrl  -Name "fake-googlebots"
 [string[]]$whitelistIPs = Get-BlockList -Url $wlIpUrl -Name "whitelist-ip"
 [string[]]$whitelistUAs = Get-BlockList -Url $wlUaUrl -Name "whitelist-ua"
 
@@ -283,7 +284,7 @@ $sb = New-Object System.Text.StringBuilder
 [int]$ruleCount = 0
 
 # -- Whitelists (must be first — take precedence over all block rules) -------
-$sb.AppendLine("        <!-- WHITELIST: evaluated first — always takes precedence -->") | Out-Null
+$sb.AppendLine("        <!-- WHITELIST: evaluated first - always takes precedence -->") | Out-Null
 
 if ($whitelistUAs.Length -gt 0) {
     $wlUaPattern = New-AlternationPattern -Entries $whitelistUAs
@@ -308,14 +309,14 @@ $ruleCount++
 Add-UrlBlockRule -Builder $sb -Name "Block Common Hacks 2" -Pattern "(globals|encode|localhost|loopback|xmlrpc|revslider|roundcube|webdav|smtp|http:|soap|w00tw00t)"
 $ruleCount++
 
-Add-UrlBlockRule -Builder $sb -Name "Block SQL Injection - URL Path" -Pattern "(;|'|%22).*(request|insert|union|declare|drop)$"
+Add-UrlBlockRule -Builder $sb -Name "Block SQL Injection - URL Path" -Pattern "(;|%27|%22).*(request|insert|union|declare|drop)$"
 $ruleCount++
 
 # SQL injection - query string requires a condition on QUERY_STRING
 $sb.AppendLine("        <rule name=""Block SQL Injection - Query String"" stopProcessing=""true"">") | Out-Null
 $sb.AppendLine("          <match url="".*"" />") | Out-Null
 $sb.AppendLine("          <conditions>") | Out-Null
-$sb.AppendLine("            <add input=""{QUERY_STRING}"" pattern=""(;|'|%22).*(request|insert|union|declare|drop)"" ignoreCase=""true"" />") | Out-Null
+$sb.AppendLine("            <add input=""{QUERY_STRING}"" pattern=""(;|%27|%22).*(request|insert|union|declare|drop)"" ignoreCase=""true"" />") | Out-Null
 $sb.AppendLine("          </conditions>") | Out-Null
 $sb.AppendLine("          <action type=""AbortRequest"" />") | Out-Null
 $sb.AppendLine("        </rule>") | Out-Null
@@ -330,7 +331,7 @@ $sb.AppendLine("        <!-- BAD USER-AGENTS: $($allUserAgents.Length) entries i
 
 for ($i = 0; $i -lt $uaTotal; $i++) {
     [string[]]$chunk = $uaChunks[$i]
-    $pattern  = New-AlternationPattern -Entries $chunk
+    $pattern = New-AlternationPattern -Entries $chunk
     $ruleName = "Block Bad Bots $($i + 1) of $uaTotal"
     Add-BlockRule -Builder $sb -Name $ruleName -ServerVar "HTTP_USER_AGENT" -Pattern $pattern
     $ruleCount++
@@ -345,7 +346,7 @@ $sb.AppendLine("        <!-- BAD REFERRERS: $($referrers.Length) entries in $ref
 
 for ($i = 0; $i -lt $refTotal; $i++) {
     [string[]]$chunk = $refChunks[$i]
-    $pattern  = New-AlternationPattern -Entries $chunk
+    $pattern = New-AlternationPattern -Entries $chunk
     $ruleName = "Block Bad Referrers $($i + 1) of $refTotal"
     Add-BlockRule -Builder $sb -Name $ruleName -ServerVar "HTTP_REFERER" -Pattern $pattern
     $ruleCount++
@@ -377,7 +378,7 @@ if ($null -ne $existingRewrite) {
 }
 
 # Build the new <rewrite> node from our generated rules string
-$timestamp  = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 $rewriteXml = "<rewrite><rules><!-- IIS Bad Bot Blocker | Generated: $timestamp | Source: $WhichLists | github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker | Written By: Kevin Pirnie -->" + $sb.ToString() + "</rules></rewrite>"
 
 $tempDoc = New-Object System.Xml.XmlDocument
@@ -387,9 +388,9 @@ $swsNode.AppendChild($importedNode) | Out-Null
 
 # Save
 $writerSettings = New-Object System.Xml.XmlWriterSettings
-$writerSettings.Indent             = $true
-$writerSettings.IndentChars        = "    "
-$writerSettings.Encoding           = [System.Text.Encoding]::UTF8
+$writerSettings.Indent = $true
+$writerSettings.IndentChars = "    "
+$writerSettings.Encoding = [System.Text.Encoding]::UTF8
 $writerSettings.OmitXmlDeclaration = $false
 
 $writer = [System.Xml.XmlWriter]::Create($AppHostPath, $writerSettings)
@@ -408,10 +409,12 @@ if ($RestartIIS) {
     & "$env:SystemRoot\System32\iisreset.exe" /noforce
     if ($LASTEXITCODE -eq 0) {
         Write-Host "IIS restarted successfully." -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Warning "iisreset exited with code $LASTEXITCODE"
     }
-} else {
+}
+else {
     Write-Host "Tip: use -RestartIIS to reload IIS after update." -ForegroundColor DarkGray
 }
 
