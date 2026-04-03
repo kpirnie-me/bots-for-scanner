@@ -8,26 +8,6 @@ A PowerShell script that pulls live, community-maintained bad bot blocklists fro
 
 ---
 
-## Why This Matters — The Business Case
-
-Most people think of "bots" as harmless background noise. They are not.
-
-**Bad bots are automated programs designed to do harm.** They crawl your web servers looking for vulnerabilities, scrape your content and pricing data for competitors, generate fake traffic that corrupts your analytics, and probe for login pages, admin panels, and unpatched software. They consume your server's bandwidth and CPU without generating a single dollar of legitimate traffic. In aggregate, bad bots account for roughly 30% of all internet traffic — meaning nearly a third of your hosting costs, server load, and bandwidth bills may be going toward serving requests from machines that have no intention of becoming customers.
-
-Specifically, this script protects against:
-
-- **Vulnerability scanners** — automated tools (Nikto, Nmap, Sqlmap, Acunetix, etc.) that probe your site for known software exploits, misconfigured directories, SQL injection points, and unpatched CMS plugins. These are the tools attackers use before launching a real attack.
-- **Content scrapers** — bots that harvest your text, images, pricing, and product data and hand it directly to competitors or resell it.
-- **Referrer spammers** — bots that pollute your analytics data with fake traffic from spam domains, making it impossible to measure real visitor behavior.
-- **Fake Googlebots** — malicious bots that impersonate Google's crawler to bypass bot-blocking rules. Real Googlebot comes from verifiable Google IP ranges; these do not.
-- **Download tools and leechers** — software that bulk-downloads your assets, documentation, or media files at machine speed.
-- **SQL injection probes** — requests that embed database attack strings directly in URLs and query parameters, testing whether your server will execute them.
-- **Known malware infrastructure** — domains and user agent strings associated with active malware campaigns.
-
-Blocking these at the web server layer — before they ever reach your application — is the most efficient and lowest-risk place to stop them.
-
----
-
 ## How It Works
 
 At a high level, the script does the following every time it runs:
