@@ -36,7 +36,7 @@
       - Must be run as Administrator
 
     SCHEDULING:
-      schtasks /create /tn "IIS Bot Blocker Update" /tr "powershell -ExecutionPolicy Bypass -NonInteractive -File C:\Scripts\Generate-IISBotBlocker.v3.ps1 -RestartIIS" /sc daily /st 02:00 /ru SYSTEM /f
+      schtasks /create /tn "IIS Bot Blocker Update" /tr "powershell -ExecutionPolicy Bypass -NonInteractive -File C:\Scripts\Generate-IISBotBlocker.ps1 -RestartIIS" /sc daily /st 02:00 /ru SYSTEM /f
 
 .PARAMETER ChunkSize
     Number of entries per regex alternation rule. Default: 200.
@@ -58,13 +58,13 @@
     Default: C:\iis-config\backups
 
 .EXAMPLE
-    .\Generate-IISBotBlocker.v3.ps1 -ChunkSize 200 -RestartIIS -WhichLists Nginx
+    .\Generate-IISBotBlocker.ps1 -ChunkSize 200 -RestartIIS -WhichLists Nginx
 
 .EXAMPLE
-    .\Generate-IISBotBlocker.v3.ps1 -WhichLists Mode -RestartIIS
+    .\Generate-IISBotBlocker.ps1 -WhichLists Mode -RestartIIS
 
 .EXAMPLE
-    .\Generate-IISBotBlocker.v3.ps1 -RestoreOriginal
+    .\Generate-IISBotBlocker.ps1 -RestoreOriginal
 
 .NOTES
     - Rules are written globally and apply to ALL sites on this IIS instance.
@@ -86,7 +86,25 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# ---------------------------------------------------------------------------
+# Force TLS 1.2 — required on Windows Server 2012 / 2012 R2 and older
+# PS/WinHTTP defaults to TLS 1.0 on those OS versions; GitHub and other CDNs
+# require TLS 1.2+, so without this every Invoke-WebRequest call will fail.
+# ---------------------------------------------------------------------------
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 $AppHostPath = "$env:SystemRoot\System32\inetsrv\config\applicationHost.config"
+
+# ---------------------------------------------------------------------------
+# Escape a string for safe embedding in an XML attribute value.
+# Converts: & -> &amp;  < -> &lt;  > -> &gt;  " -> &quot;  ' -> &apos;
+# [System.Security.SecurityElement]::Escape() handles all five cases and is
+# available on .NET 3.5+ (present on every supported Windows Server version).
+# ---------------------------------------------------------------------------
+function Escape-XmlAttr {
+    param([string]$Value)
+    return [System.Security.SecurityElement]::Escape($Value)
+}
 
 # ---------------------------------------------------------------------------
 # Fetch a URL and return a typed string array, always.
@@ -139,6 +157,8 @@ function New-AlternationPattern {
 # ---------------------------------------------------------------------------
 # Append a block rule to a StringBuilder.
 # Matches on a server variable with ignoreCase="true".
+# $Pattern and $Name are XML-attribute-escaped before interpolation to prevent
+# any list entry containing <, >, &, or " from breaking LoadXml.
 # ---------------------------------------------------------------------------
 function Add-BlockRule {
     param(
@@ -147,10 +167,12 @@ function Add-BlockRule {
         [string]$ServerVar,
         [string]$Pattern
     )
-    $Builder.AppendLine("        <rule name=""$Name"" stopProcessing=""true"">") | Out-Null
+    $safeName    = Escape-XmlAttr $Name
+    $safePattern = Escape-XmlAttr $Pattern
+    $Builder.AppendLine("        <rule name=""$safeName"" stopProcessing=""true"">") | Out-Null
     $Builder.AppendLine("          <match url="".*"" />") | Out-Null
     $Builder.AppendLine("          <conditions logicalGrouping=""MatchAll"" trackAllCaptures=""false"">") | Out-Null
-    $Builder.AppendLine("            <add input=""{$ServerVar}"" pattern=""$Pattern"" ignoreCase=""true"" />") | Out-Null
+    $Builder.AppendLine("            <add input=""{$ServerVar}"" pattern=""$safePattern"" ignoreCase=""true"" />") | Out-Null
     $Builder.AppendLine("          </conditions>") | Out-Null
     $Builder.AppendLine("          <action type=""AbortRequest"" />") | Out-Null
     $Builder.AppendLine("        </rule>") | Out-Null
@@ -158,6 +180,7 @@ function Add-BlockRule {
 
 # ---------------------------------------------------------------------------
 # Append an allow (whitelist) rule to a StringBuilder.
+# $Pattern and $Name are XML-attribute-escaped before interpolation.
 # ---------------------------------------------------------------------------
 function Add-AllowRule {
     param(
@@ -166,10 +189,12 @@ function Add-AllowRule {
         [string]$ServerVar,
         [string]$Pattern
     )
-    $Builder.AppendLine("        <rule name=""$Name"" stopProcessing=""true"">") | Out-Null
+    $safeName    = Escape-XmlAttr $Name
+    $safePattern = Escape-XmlAttr $Pattern
+    $Builder.AppendLine("        <rule name=""$safeName"" stopProcessing=""true"">") | Out-Null
     $Builder.AppendLine("          <match url="".*"" />") | Out-Null
     $Builder.AppendLine("          <conditions logicalGrouping=""MatchAll"" trackAllCaptures=""false"">") | Out-Null
-    $Builder.AppendLine("            <add input=""{$ServerVar}"" pattern=""$Pattern"" ignoreCase=""true"" />") | Out-Null
+    $Builder.AppendLine("            <add input=""{$ServerVar}"" pattern=""$safePattern"" ignoreCase=""true"" />") | Out-Null
     $Builder.AppendLine("          </conditions>") | Out-Null
     $Builder.AppendLine("          <action type=""None"" />") | Out-Null
     $Builder.AppendLine("        </rule>") | Out-Null
@@ -177,6 +202,7 @@ function Add-AllowRule {
 
 # ---------------------------------------------------------------------------
 # Append a URL match block rule (ignoreCase on <match> not <add>).
+# $Pattern and $Name are XML-attribute-escaped before interpolation.
 # ---------------------------------------------------------------------------
 function Add-UrlBlockRule {
     param(
@@ -184,8 +210,10 @@ function Add-UrlBlockRule {
         [string]$Name,
         [string]$Pattern
     )
-    $Builder.AppendLine("        <rule name=""$Name"" stopProcessing=""true"">") | Out-Null
-    $Builder.AppendLine("          <match url=""$Pattern"" ignoreCase=""true"" />") | Out-Null
+    $safeName    = Escape-XmlAttr $Name
+    $safePattern = Escape-XmlAttr $Pattern
+    $Builder.AppendLine("        <rule name=""$safeName"" stopProcessing=""true"">") | Out-Null
+    $Builder.AppendLine("          <match url=""$safePattern"" ignoreCase=""true"" />") | Out-Null
     $Builder.AppendLine("          <action type=""AbortRequest"" />") | Out-Null
     $Builder.AppendLine("        </rule>") | Out-Null
 }
@@ -244,14 +272,14 @@ $wlIpUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/whitelis
 $wlUaUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/whitelist-ua.list"
 
 if ($WhichLists -eq "Mode") {
-    $uaUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/bad-user-agents.list"
+    $uaUrl  = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/bad-user-agents.list"
     $refUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/bad-referrers.list"
-    $fgUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/fake-googlebots.list"
+    $fgUrl  = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/fake-googlebots.list"
 }
 else {
-    $uaUrl = "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists/bad-user-agents.list"
+    $uaUrl  = "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists/bad-user-agents.list"
     $refUrl = "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists/bad-referrers.list"
-    $fgUrl = "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists/fake-googlebots.list"
+    $fgUrl  = "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists/fake-googlebots.list"
 }
 
 Write-Host ""
@@ -262,11 +290,11 @@ Write-Host ""
 # ---------------------------------------------------------------------------
 # Fetch all lists
 # ---------------------------------------------------------------------------
-[string[]]$userAgents = Get-BlockList -Url $uaUrl  -Name "bad-user-agents"
-[string[]]$referrers = Get-BlockList -Url $refUrl -Name "bad-referrers"
-[string[]]$fakeBots = Get-BlockList -Url $fgUrl  -Name "fake-googlebots"
-[string[]]$whitelistIPs = Get-BlockList -Url $wlIpUrl -Name "whitelist-ip"
-[string[]]$whitelistUAs = Get-BlockList -Url $wlUaUrl -Name "whitelist-ua"
+[string[]]$userAgents   = Get-BlockList -Url $uaUrl    -Name "bad-user-agents"
+[string[]]$referrers    = Get-BlockList -Url $refUrl   -Name "bad-referrers"
+[string[]]$fakeBots     = Get-BlockList -Url $fgUrl    -Name "fake-googlebots"
+[string[]]$whitelistIPs = Get-BlockList -Url $wlIpUrl  -Name "whitelist-ip"
+[string[]]$whitelistUAs = Get-BlockList -Url $wlUaUrl  -Name "whitelist-ua"
 
 [string[]]$allUserAgents = @(($userAgents + $fakeBots) | Sort-Object -Unique)
 
@@ -313,10 +341,11 @@ Add-UrlBlockRule -Builder $sb -Name "Block SQL Injection - URL Path" -Pattern "(
 $ruleCount++
 
 # SQL injection - query string requires a condition on QUERY_STRING
+$sqlQsPattern = Escape-XmlAttr "(;|%27|%22).*(request|insert|union|declare|drop)"
 $sb.AppendLine("        <rule name=""Block SQL Injection - Query String"" stopProcessing=""true"">") | Out-Null
 $sb.AppendLine("          <match url="".*"" />") | Out-Null
 $sb.AppendLine("          <conditions>") | Out-Null
-$sb.AppendLine("            <add input=""{QUERY_STRING}"" pattern=""(;|%27|%22).*(request|insert|union|declare|drop)"" ignoreCase=""true"" />") | Out-Null
+$sb.AppendLine("            <add input=""{QUERY_STRING}"" pattern=""$sqlQsPattern"" ignoreCase=""true"" />") | Out-Null
 $sb.AppendLine("          </conditions>") | Out-Null
 $sb.AppendLine("          <action type=""AbortRequest"" />") | Out-Null
 $sb.AppendLine("        </rule>") | Out-Null
@@ -331,7 +360,7 @@ $sb.AppendLine("        <!-- BAD USER-AGENTS: $($allUserAgents.Length) entries i
 
 for ($i = 0; $i -lt $uaTotal; $i++) {
     [string[]]$chunk = $uaChunks[$i]
-    $pattern = New-AlternationPattern -Entries $chunk
+    $pattern  = New-AlternationPattern -Entries $chunk
     $ruleName = "Block Bad Bots $($i + 1) of $uaTotal"
     Add-BlockRule -Builder $sb -Name $ruleName -ServerVar "HTTP_USER_AGENT" -Pattern $pattern
     $ruleCount++
@@ -346,7 +375,7 @@ $sb.AppendLine("        <!-- BAD REFERRERS: $($referrers.Length) entries in $ref
 
 for ($i = 0; $i -lt $refTotal; $i++) {
     [string[]]$chunk = $refChunks[$i]
-    $pattern = New-AlternationPattern -Entries $chunk
+    $pattern  = New-AlternationPattern -Entries $chunk
     $ruleName = "Block Bad Referrers $($i + 1) of $refTotal"
     Add-BlockRule -Builder $sb -Name $ruleName -ServerVar "HTTP_REFERER" -Pattern $pattern
     $ruleCount++
@@ -377,8 +406,9 @@ if ($null -ne $existingRewrite) {
     Write-Host "Removed existing  : <rewrite> block" -ForegroundColor DarkGray
 }
 
-# Build the new <rewrite> node from our generated rules string
-$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+# Build the new <rewrite> node from our generated rules string.
+# The comment is plain text inside a comment node — no attribute escaping needed there.
+$timestamp  = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 $rewriteXml = "<rewrite><rules><!-- IIS Bad Bot Blocker | Generated: $timestamp | Source: $WhichLists | github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker | Written By: Kevin Pirnie -->" + $sb.ToString() + "</rules></rewrite>"
 
 $tempDoc = New-Object System.Xml.XmlDocument
@@ -387,10 +417,10 @@ $importedNode = $appHost.ImportNode($tempDoc.DocumentElement, $true)
 $swsNode.AppendChild($importedNode) | Out-Null
 
 # Save
-$writerSettings = New-Object System.Xml.XmlWriterSettings
-$writerSettings.Indent = $true
-$writerSettings.IndentChars = "    "
-$writerSettings.Encoding = [System.Text.Encoding]::UTF8
+$writerSettings                    = New-Object System.Xml.XmlWriterSettings
+$writerSettings.Indent             = $true
+$writerSettings.IndentChars        = "    "
+$writerSettings.Encoding           = [System.Text.Encoding]::UTF8
 $writerSettings.OmitXmlDeclaration = $false
 
 $writer = [System.Xml.XmlWriter]::Create($AppHostPath, $writerSettings)
@@ -398,7 +428,7 @@ $appHost.Save($writer)
 $writer.Close()
 
 Write-Host "Rules written to  : $AppHostPath" -ForegroundColor Green
-Write-Host "Total rules       : $ruleCount" -ForegroundColor Green
+Write-Host "Total rules       : $ruleCount"   -ForegroundColor Green
 Write-Host ""
 
 # ---------------------------------------------------------------------------
