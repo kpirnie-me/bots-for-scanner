@@ -87,11 +87,14 @@ param(
 $ErrorActionPreference = "Stop"
 
 # ---------------------------------------------------------------------------
-# Force TLS 1.2 — required on Windows Server 2012 / 2012 R2 and older
-# PS/WinHTTP defaults to TLS 1.0 on those OS versions; GitHub and other CDNs
-# require TLS 1.2+, so without this every Invoke-WebRequest call will fail.
+# Tell .NET to negotiate TLS 1.0 / 1.1 / 1.2 — PS/WinHTTP defaults to 1.0.
+# Note: if TLS 1.2 is disabled at the Schannel level on this OS, that must
+# be resolved at the server level separately from this script.
 # ---------------------------------------------------------------------------
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+[Net.ServicePointManager]::SecurityProtocol = `
+    [Net.SecurityProtocolType]::Tls -bor `
+    [Net.SecurityProtocolType]::Tls11 -bor `
+    [Net.SecurityProtocolType]::Tls12
 
 $AppHostPath = "$env:SystemRoot\System32\inetsrv\config\applicationHost.config"
 
@@ -108,14 +111,19 @@ function Escape-XmlAttr {
 
 # ---------------------------------------------------------------------------
 # Fetch a URL and return a typed string array, always.
+# Uses System.Net.WebClient instead of Invoke-WebRequest — WebClient reliably
+# goes through System.Net.ServicePointManager (TLS protocol + cert policy)
+# on .NET 4.5 / PS 4 / Server 2012, whereas Invoke-WebRequest on those
+# versions routes through WinHTTP and ignores ServicePointManager entirely.
 # ---------------------------------------------------------------------------
 function Get-BlockList {
     param([string]$Url, [string]$Name)
     Write-Host "  Fetching $Name..." -ForegroundColor Cyan
     try {
-        $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 30
+        $wc      = New-Object System.Net.WebClient
+        $content = $wc.DownloadString($Url)
         [string[]]$lines = @(
-            ($response.Content -split "`n") |
+            ($content -split "`n") |
             ForEach-Object { $_.Trim() } |
             Where-Object { ($_ -ne "") -and (-not $_.StartsWith("#")) }
         )
@@ -268,13 +276,13 @@ if (-not (Test-Path $originalBackupPath)) {
 # ---------------------------------------------------------------------------
 # Resolve list URLs based on -WhichLists
 # ---------------------------------------------------------------------------
-$wlIpUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/whitelist-ip.list"
-$wlUaUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/whitelist-ua.list"
+$wlIpUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/whitelist-ip.list"
+$wlUaUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/whitelist-ua.list"
 
 if ($WhichLists -eq "Mode") {
-    $uaUrl  = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/bad-user-agents.list"
-    $refUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/bad-referrers.list"
-    $fgUrl  = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/fake-googlebots.list"
+    $uaUrl  = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/bad-user-agents.list"
+    $refUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/bad-referrers.list"
+    $fgUrl  = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/fake-googlebots.list"
 }
 else {
     $uaUrl  = "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists/bad-user-agents.list"
