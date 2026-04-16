@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Pulls lists from one of two sources (controlled by -WhichLists):
-      Mode  : https://github.com/kpirnie-me/bots-for-scanner
+      Mode  : https://gitlab.moco.biz/kpirnie/bots-for-scanner
       Nginx : https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker
 
     Lists pulled:
@@ -240,13 +240,13 @@ if (-not (Test-Path $originalBackupPath)) {
 # ---------------------------------------------------------------------------
 # Resolve list URLs based on -WhichLists
 # ---------------------------------------------------------------------------
-$wlIpUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/whitelist-ip.list"
-$wlUaUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/whitelist-ua.list"
+$wlIpUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/whitelist-ip.list"
+$wlUaUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/whitelist-ua.list"
 
 if ($WhichLists -eq "Mode") {
-    $uaUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/bad-user-agents.list"
-    $refUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/bad-referrers.list"
-    $fgUrl = "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/fake-googlebots.list"
+    $uaUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/bad-user-agents.list"
+    $refUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/bad-referrers.list"
+    $fgUrl = "https://gitlab.moco.biz/kpirnie/bots-for-scanner/-/raw/main/fake-googlebots.list"
 }
 else {
     $uaUrl = "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists/bad-user-agents.list"
